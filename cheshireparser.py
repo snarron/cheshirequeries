@@ -9,6 +9,16 @@ soup = bs.BeautifulSoup(open(PATH, 'rt').read())
 
 tags = ['num', 'title', 'desc', 'narr']
 
+def isPlural(word):
+	if len(word) > 3 and word[-1] == 's' and word[-2:] != 'ss':
+		if word[-3:] == 'ies' or word[-2:] == "is":
+			pass
+		else:
+			word = word[:-1]
+	else:
+		pass
+	return word
+
 def find_top_tag(soup, tags):
 	initial_list = {}
 	counter = 0
@@ -68,8 +78,6 @@ def group_query(line_list):
 		q += 1
 	return query_group
 
-
-
 def make_query(pre_query_dict, query_number):
 	#query = "dc.title"
 	p = inflect.engine()
@@ -77,50 +85,72 @@ def make_query(pre_query_dict, query_number):
 	query_base = pre_query_dict[query_number]
 	#print query_base
 	query_num, query_title, query_desc, query_narr = query_base[:4]
-	query_num = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_num[1:-1] if not w in stopwords.words('english')]
-	query_title = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_title[1:-1] if not w in stopwords.words('english')]
-	query_desc = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_desc[2:-1] if not w in stopwords.words('english')]
-	query_narr = [w.translate(string.maketrans("","").lower(), string.punctuation)  for w in query_narr[2:-1] if not w in stopwords.words('english')]
+	query_num = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_num[1:-1]]# if not w in stopwords.words('english')]
+	query_title = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_title[1:-1]]# if not w in stopwords.words('english')]
+	query_desc = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_desc[2:-1]]# if not w in stopwords.words('english')]
+	query_narr = [w.translate(string.maketrans("","").lower(), string.punctuation)  for w in query_narr[2:-1]]# if not w in stopwords.words('english')]
 	query_num[0], query_title[0], query_desc[0] = query_num[0].lower(), query_title[0].lower(), query_desc[0].lower()
-	#print query_base
-	#print query_num
-	#print query_title
-	#print query_desc
-	#print query_narr
-	#print query_number
+	
+	#BEGIN AND
+	and_list = []
+	i = 0
+	while i < len(query_desc)-2:
+		#print query_desc[i]
+		if (query_desc[i] in query_narr) and (query_desc[i+1] in query_narr) and (query_desc[i] not in stopwords.words('english')) and (query_desc[i+1] not in stopwords.words('english')):
+			if (query_desc[i+2] in query_narr) and (query_desc[i+2] not in stopwords.words('english')):
+				and_list.append(query_desc[i])
+				and_list.append(query_desc[i+1])
+				and_list.append(query_desc[i+2])
+				#print str(query_desc[i:i+3])
+			else:
+				if query_desc[i-1] not in query_narr:
+					and_list.append(query_desc[i])
+					and_list.append(query_desc[i+1])
+					#print str(query_desc[i:i+2])
+				else:
+					pass
+		else:
+			pass
+		i += 1
+	if (query_desc[-3] in query_narr) and (query_desc[-2] in query_narr):#(query_desc[-2] not in stopwords.words('english')) and (query_desc[-1] not in stopwords.words('english')):
+		if query_desc[-1] in query_narr:
+			and_list.append(query_desc[-1])
+			and_list.append(query_desc[-2])
+			and_list.append(query_desc[-3])
+		else:
+			and_list.append(query_desc[-2])
+			and_list.append(query_desc[-3])
+	# END AND
+	#print and_list
+
+	#BEGIN OR
 	for q in query_desc:
-		if q == query_desc[0]:
+		q = isPlural(q)
+		#print q
+		if (q not in stopwords.words('english')) and (q not in and_list):
 			if (q in query_narr) and (q in query_title):
-				#query = query + ' any ' + q + ' and '
-				query = query + q + ' and '
+				query = query + ' and ' + q 
 				#print "both"
 			elif (q in query_narr):
-				#query = query + ' any ' + q + ' or '
-				query = query + q + ' or '
+				query = query + ' and ' + q
 				#print "narr"
 			elif (q in query_title):
-				#query = query + ' any ' + q + ' or '
-				query = query + q + ' or '
+				query = query + ' or ' + q
 				#print "title"
 			else: # should never happen
-				#query = query + ' any '
 				pass
 		else:
-			if (q in query_narr) and (q in query_title):
-				query = query + q + ' and '
-				#print "both"
-			elif (q in query_narr):
-				query = query + q + ' or '
-				#print "narr"
-			elif (q in query_title):
-				query = query + q + ' or '
-				#print "title"
-			else: # should never happen
-				pass
-	if query[-3:] == 'or ':
-		query = query[:-3]
-	elif query[-4:] == 'and ':
-		query = query[:-4]
+			pass
+	#END OR
+
+	for i in and_list:
+		query = ' and ' + i + query
+	
+	#TRIM QUERY END
+	if query[:4] == ' or ':
+		query = query[4:]
+	elif query[:5] == ' and ':
+		query = query[5:]
 	return query
 
 query_abstract = find_top_tag(soup, tags)
@@ -132,10 +162,11 @@ looped_tag = tag_loop(cleaner_abstract)
 pre_query_dict = group_query(looped_tag)
 #print pre_query_dict
 
+final_query = []
 i = 0
 final_queries = {}
 while i < len(pre_query_dict):
-	print str(i) + ": " + make_query(pre_query_dict, i)
+	print str(401+i) + ": " + make_query(pre_query_dict, i) + ';'
 	i += 1
 
 #query_list = make_query(pre_query_dict)
