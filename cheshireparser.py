@@ -1,8 +1,11 @@
 import BeautifulSoup as bs
 import re
 from nltk.corpus import stopwords
+from nltk.stem.wordnet import WordNetLemmatizer
 import string
 import inflect
+
+lmtzr = WordNetLemmatizer().lemmatize
 
 PATH = '/Users/shoheinarron/Sites/github/cheshirequeries/transformedQueries.xml'
 soup = bs.BeautifulSoup(open(PATH, 'rt').read())
@@ -79,6 +82,7 @@ def group_query(line_list):
 	return query_group
 
 def make_query(pre_query_dict, query_number):
+	global lmtzr
 	#query = "dc.title"
 	p = inflect.engine()
 	query = ""
@@ -86,9 +90,9 @@ def make_query(pre_query_dict, query_number):
 	#print query_base
 	query_num, query_title, query_desc, query_narr = query_base[:4]
 	query_num = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_num[1:-1]]# if not w in stopwords.words('english')]
-	query_title = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_title[1:-1]]# if not w in stopwords.words('english')]
-	query_desc = [w.translate(string.maketrans("","").lower(), string.punctuation) for w in query_desc[2:-1]]# if not w in stopwords.words('english')]
-	query_narr = [w.translate(string.maketrans("","").lower(), string.punctuation)  for w in query_narr[2:-1]]# if not w in stopwords.words('english')]
+	query_title = [lmtzr(w.translate(string.maketrans("","").lower(), string.punctuation)) for w in query_title[1:-1]]# if not w in stopwords.words('english')]
+	query_desc = [lmtzr(w.translate(string.maketrans("","").lower(), string.punctuation)) for w in query_desc[2:-1]]# if not w in stopwords.words('english')]
+	query_narr = [lmtzr(w.translate(string.maketrans("","").lower(), string.punctuation))  for w in query_narr[2:-1]]# if not w in stopwords.words('english')]
 	query_num[0], query_title[0], query_desc[0] = query_num[0].lower(), query_title[0].lower(), query_desc[0].lower()
 	
 	#BEGIN AND
@@ -96,30 +100,30 @@ def make_query(pre_query_dict, query_number):
 	i = 0
 	while i < len(query_desc)-2:
 		#print query_desc[i]
-		if (query_desc[i] in query_narr) and (query_desc[i+1] in query_narr) and (query_desc[i] not in stopwords.words('english')) and (query_desc[i+1] not in stopwords.words('english')):
-			if (query_desc[i+2] in query_narr) and (query_desc[i+2] not in stopwords.words('english')):
-				and_list.append(query_desc[i])
-				and_list.append(query_desc[i+1])
-				and_list.append(query_desc[i+2])
+		if (lmtzr(query_desc[i]) in query_narr) and (lmtzr(query_desc[i+1]) in query_narr) and (query_desc[i] not in stopwords.words('english')) and (query_desc[i+1] not in stopwords.words('english')):
+			if (lmtzr(query_desc[i+2]) in query_narr) and (query_desc[i+2] not in stopwords.words('english')):
+				and_list.append(lmtzr(query_desc[i]))
+				and_list.append(lmtzr(query_desc[i+1]))
+				and_list.append(lmtzr(query_desc[i+2]))
 				#print str(query_desc[i:i+3])
 			else:
 				if query_desc[i-1] not in query_narr:
-					and_list.append(query_desc[i])
-					and_list.append(query_desc[i+1])
+					and_list.append(lmtzr(query_desc[i]))
+					and_list.append(lmtzr(query_desc[i+1]))
 					#print str(query_desc[i:i+2])
 				else:
 					pass
 		else:
 			pass
 		i += 1
-	if (query_desc[-3] in query_narr) and (query_desc[-2] in query_narr):#(query_desc[-2] not in stopwords.words('english')) and (query_desc[-1] not in stopwords.words('english')):
+	if (query_desc[-3] in query_narr) and (query_desc[-2] in query_narr) and (query_desc[-2] not in stopwords.words('english')) and (query_desc[-1] not in stopwords.words('english')):
 		if query_desc[-1] in query_narr:
 			and_list.append(query_desc[-1])
 			and_list.append(query_desc[-2])
 			and_list.append(query_desc[-3])
 		else:
-			and_list.append(query_desc[-2])
-			and_list.append(query_desc[-3])
+			and_list.append(lmtzr(query_desc[-2]))
+			and_list.append(lmtzr(query_desc[-3]))
 	# END AND
 	#print and_list
 
@@ -129,13 +133,13 @@ def make_query(pre_query_dict, query_number):
 		#print q
 		if (q not in stopwords.words('english')) and (q not in and_list):
 			if (q in query_narr) and (q in query_title):
-				query = query + ' and ' + q 
+				query = query + ' and ' + q #+ 'pew'
 				#print "both"
 			elif (q in query_narr):
-				query = query + ' and ' + q
+				query = query + ' and ' + q #+ 'pewpew'
 				#print "narr"
 			elif (q in query_title):
-				query = query + ' or ' + q
+				query = query + ' or ' + q #+ 'pewpewpew'
 				#print "title"
 			else: # should never happen
 				pass
@@ -154,13 +158,9 @@ def make_query(pre_query_dict, query_number):
 	return query
 
 query_abstract = find_top_tag(soup, tags)
-#print query_list
 cleaner_abstract = query_cleanup(query_abstract)
-#print cleaner_list
 looped_tag = tag_loop(cleaner_abstract)
-#print looped_tag
 pre_query_dict = group_query(looped_tag)
-#print pre_query_dict
 
 final_query = []
 i = 0
